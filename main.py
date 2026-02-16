@@ -19,44 +19,48 @@ if not session_string:
     print("❌ ОШИБКА: Нет переменной SESSION_STRING!")
     exit(1)
 
-# --- ГЛАВНОЕ ИЗМЕНЕНИЕ: ВЕЧНОЕ ПЕРЕПОДКЛЮЧЕНИЕ ---
+# Клиент
 client = TelegramClient(
     StringSession(session_string),
     api_id,
     api_hash,
-    connection_retries=None,     # Бесконечные попытки (не сдаваться никогда)
-    auto_reconnect=True,         # Автоматически восстанавливать связь
-    retry_delay=5                # Пробовать каждые 5 секунд при разрыве
+    connection_retries=None,
+    auto_reconnect=True,
+    retry_delay=5
 )
 
-# Функция отправки уведомления
-def send_notification(text):
+# Функция отправки (теперь работает в фоне и не вешает бота)
+async def send_notification_async(text):
+    url = f"https://ntfy.sh/{NTFY_TOPIC}"
+    
+    # Запускаем отправку в отдельном потоке, чтобы не тормозить Telegram
     try:
-        requests.post(
-            f"https://ntfy.sh/{NTFY_TOPIC}",
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: requests.post(
+            url,
             data=f"🔔 НОВОЕ СООБЩЕНИЕ!\n{text[:100]}".encode('utf-8'),
             headers={
                 "Title": "Telegram Alarm",
-                "Priority": "5",
-                "Tags": "rotating_light"
+                "Priority": "4",       # <--- ИЗМЕНИЛ НА 4 (High). Вибрирует сильно, но не орет вечно.
+                "Tags": "loudspeaker"
             },
-            timeout=5 # Таймаут 5 секунд, чтобы не виснуть на отправке
-        )
-        print(f"✅ Сигнал отправлен в {NTFY_TOPIC}")
+            timeout=5
+        ))
+        print(f"✅ Сигнал отправлен (фон): {text[:20]}...")
     except Exception as e:
-        print(f"⚠️ Ошибка отправки в ntfy: {e}")
+        print(f"⚠️ Ошибка отправки: {e}")
 
 @client.on(events.NewMessage(chats=source_channel_id))
 async def handler(event):
-    # Логируем ID сообщения, чтобы видеть в консоли
-    print(f"📩 ПОЛУЧЕНО СООБЩЕНИЕ! ID: {event.message.id}")
+    # Сразу пишем в лог, что сообщение пришло
+    print(f"📩 ПОЛУЧЕНО! ID: {event.message.id}")
     
     msg_text = event.message.text or "📷 Фото/Медиа"
-    send_notification(msg_text)
+    
+    # Запускаем отправку уведомления "параллельно"
+    # Бот сразу готов принимать следующее сообщение
+    asyncio.create_task(send_notification_async(msg_text))
 
 print(f"🤖 Бот запущен! Слежу за каналом {source_channel_id}...")
-print("🔄 Режим вечного переподключения активен.")
-
-# Запуск
 client.start()
 client.run_until_disconnected()
