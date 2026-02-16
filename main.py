@@ -26,28 +26,33 @@ client = TelegramClient(
     retry_delay=5
 )
 
-def send_simple_notification(text):
+# Функция отправки (ОПРЕДЕЛЕНА ЗДЕСЬ)
+def send_notification_thread(text):
     try:
+        # Отправляем "ЗВОНОК" (долгая вибрация)
         requests.post(
             f"https://ntfy.sh/{NTFY_TOPIC}",
-            data=f"🔔 Сообщение: {text[:50]}".encode('utf-8'),
+            data=f"📳 ЗВОНОК! {text[:50]}".encode('utf-8'),
             headers={
-                "Title": "Telegram",
-                "Priority": "default" # Обычный приоритет (точно дойдет)
-            }
+                "Title": "Telegram Call",
+                "Priority": "5",
+                "Tags": "call",      
+                "Call": "1"
+            },
+            timeout=10
         )
-        print("✅ Простой сигнал отправлен")
+        print("✅ Сигнал отправлен (фон)!")
     except Exception as e:
-        print(f"⚠️ Ошибка: {e}")
-
+        print(f"⚠️ Ошибка отправки: {e}")
 
 @client.on(events.NewMessage(chats=source_channel_id))
 async def handler(event):
     print(f"📩 ПОЛУЧЕНО! ID: {event.message.id}")
     
-    # Запускаем отправку в фоновом потоке (самый надежный способ)
-    # Это гарантирует, что бот сразу готов к следующему сообщению
-    threading.Thread(target=send_push_background).start()
+    msg_text = event.message.text or "📷 Фото"
+    
+    # Запускаем в фоне (ИМЯ ФУНКЦИИ СОВПАДАЕТ!)
+    threading.Thread(target=send_notification_thread, args=(msg_text,)).start()
 
 print(f"🤖 Бот запущен! Слежу за каналом {source_channel_id}...")
 client.start()
