@@ -33,7 +33,6 @@ client = TelegramClient(
 async def send_notification_async(text):
     url = f"https://ntfy.sh/{NTFY_TOPIC}"
     
-    # Запускаем отправку в отдельном потоке, чтобы не тормозить Telegram
     try:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: requests.post(
@@ -41,14 +40,15 @@ async def send_notification_async(text):
             data=f"🔔 НОВОЕ СООБЩЕНИЕ!\n{text[:100]}".encode('utf-8'),
             headers={
                 "Title": "Telegram Alarm",
-                "Priority": "4",       # <--- ИЗМЕНИЛ НА 4 (High). Вибрирует сильно, но не орет вечно.
-                "Tags": "loudspeaker"
+                "Priority": "5",       # <--- ВЕРНУЛИ 5 (MAX). Самый важный уровень.
+                "Tags": "rotating_light" # Значок мигалки
             },
             timeout=5
         ))
-        print(f"✅ Сигнал отправлен (фон): {text[:20]}...")
+        print(f"✅ ЖЕСТКИЙ Сигнал отправлен: {text[:20]}...")
     except Exception as e:
         print(f"⚠️ Ошибка отправки: {e}")
+
 
 @client.on(events.NewMessage(chats=source_channel_id))
 async def handler(event):
