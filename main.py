@@ -1,5 +1,5 @@
 import os
-import aiohttp # <--- Асинхронные запросы (быстро и не блокирует)
+import aiohttp
 import asyncio
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
@@ -7,7 +7,9 @@ from telethon.sessions import StringSession
 # --- НАСТРОЙКИ ---
 api_id = 23330271
 api_hash = '4f5b104fcee7c2593eff394b19d4b67f'
-NTFY_TOPIC = "alarmsig"  # Вернем старый топик, если хочешь, или новый
+
+# Топик (Убедись, что он совпадает с телефоном!)
+NTFY_TOPIC = "alarmsig"
 source_channel_id = -1003197594249
 
 # Сессия
@@ -16,7 +18,7 @@ if not session_string:
     print("❌ ОШИБКА: Нет переменной SESSION_STRING!")
     exit(1)
 
-# Клиент
+# Клиент (Вечное соединение)
 client = TelegramClient(
     StringSession(session_string),
     api_id,
@@ -26,36 +28,39 @@ client = TelegramClient(
     retry_delay=5
 )
 
-# Асинхронная функция отправки
-async def send_async_notification(text):
+# Функция отправки (Асинхронная + ЗВОНОК)
+async def send_critical_alert(text):
     url = f"https://ntfy.sh/{NTFY_TOPIC}"
     
-    # Используем aiohttp вместо requests
+    # Формируем "Злой" запрос
+    headers = {
+        "Title": "Telegram Call",
+        "Priority": "5",       # Максимальный (пробивает тишину)
+        "Tags": "call",        # <--- ГЛАВНОЕ: Эмуляция звонка (долгая вибрация)
+        "Call": "1"            # Подтверждение для Android/iOS
+    }
+    
     try:
+        # Используем aiohttp сессию (она супер-быстрая)
         async with aiohttp.ClientSession() as session:
             await session.post(
                 url,
-                data=f"🔔 НОВОЕ СООБЩЕНИЕ!\n{text[:50]}".encode('utf-8'),
-                headers={
-                    "Title": "Telegram",
-                    "Priority": "5",       # 5 = Пробивает режимы
-                    "Tags": "rotating_light"
-                },
-                timeout=10
+                data=f"📳 ВХОДЯЩИЙ СИГНАЛ!\n{text[:50]}".encode('utf-8'),
+                headers=headers,
+                timeout=5
             )
-        print(f"✅ Сигнал отправлен: {text[:20]}...")
+        print(f"✅ Звонок отправлен: {text[:20]}...")
     except Exception as e:
         print(f"⚠️ Ошибка отправки: {e}")
 
 @client.on(events.NewMessage(chats=source_channel_id))
 async def handler(event):
-    # Сразу пишем в лог
+    # Логируем сразу
     print(f"📩 ПОЛУЧЕНО! ID: {event.message.id}")
     msg_text = event.message.text or "Файл"
     
-    # Запускаем отправку как фоновую задачу (Fire-and-forget)
-    # Бот НЕ ЖДЕТ ответа от сервера и сразу готов к новому сообщению
-    asyncio.create_task(send_async_notification(msg_text))
+    # Запускаем отправку в фоне. Бот МГНОВЕННО готов к следующему сообщению.
+    asyncio.create_task(send_critical_alert(msg_text))
 
 print(f"🤖 Бот запущен! Топик: {NTFY_TOPIC}")
 client.start()
