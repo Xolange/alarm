@@ -26,23 +26,20 @@ client = TelegramClient(
     retry_delay=5
 )
 
-# Функция отправки (В отдельном потоке, чтобы не тормозить)
-def send_push_background():
+def send_simple_notification(text):
     try:
         requests.post(
             f"https://ntfy.sh/{NTFY_TOPIC}",
-            data="📳 ЗВОНОК! НОВОЕ СООБЩЕНИЕ!".encode('utf-8'),
+            data=f"🔔 Сообщение: {text[:50]}".encode('utf-8'),
             headers={
-                "Title": "Telegram Alert",
-                "Priority": "5",
-                "Tags": "call",      # Эмуляция звонка (долгая вибрация)
-                "Call": "1"
-            },
-            timeout=10
+                "Title": "Telegram",
+                "Priority": "default" # Обычный приоритет (точно дойдет)
+            }
         )
-        print("✅ Сигнал отправлен!")
+        print("✅ Простой сигнал отправлен")
     except Exception as e:
-        print(f"⚠️ Ошибка отправки: {e}")
+        print(f"⚠️ Ошибка: {e}")
+
 
 @client.on(events.NewMessage(chats=source_channel_id))
 async def handler(event):
