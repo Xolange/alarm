@@ -1,2 +1,2 @@
 Telethon
-requests
+aiohttp
