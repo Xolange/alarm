@@ -7,7 +7,7 @@ from telethon.sessions import StringSession
 # --- НАСТРОЙКИ ---
 api_id = 23330271
 api_hash = '4f5b104fcee7c2593eff394b19d4b67f'
-NTFY_TOPIC = "alarmsig"  # <--- ПРОВЕРЬ, ЧТО В ПРИЛОЖЕНИИ ТОЧНО ТАК ЖЕ
+NTFY_TOPIC = "alarmsig"
 source_channel_id = -1003197594249
 
 # Сессия
@@ -18,35 +18,29 @@ if not session_string:
 
 client = TelegramClient(StringSession(session_string), api_id, api_hash, connection_retries=None, auto_reconnect=True, retry_delay=5)
 
-def send_debug_notification(text):
+def send_alert(text):
     try:
         url = f"https://ntfy.sh/{NTFY_TOPIC}"
-        
-        # Отправляем ПРОСТОЕ уведомление (без звонков и фокусов), чтобы проверить связь
-        response = requests.post(
+        requests.post(
             url,
-            data=f"🔔 ТЕСТ СВЯЗИ! {text[:30]}".encode('utf-8'),
+            data=f"🔔 НОВОЕ СООБЩЕНИЕ!\n{text[:50]}".encode('utf-8'),
             headers={
-                "Title": "Debug Message",
-                "Priority": "4",
-                "Tags": "warning"
+                "Title": "Telegram Alert",
+                "Priority": "5",       # <--- ВЕРНУЛИ 5 (Чтобы пробило "Не беспокоить")
+                "Tags": "rotating_light" # УБРАЛИ "call", чтобы не орало вечно
             },
             timeout=10
         )
-        
-        # ВЫВОДИМ ОТВЕТ СЕРВЕРА (ЭТО САМОЕ ВАЖНОЕ!)
-        print(f"📡 Статус ответа: {response.status_code}")
-        print(f"📝 Текст ответа: {response.text}")
-        
+        print("✅ Сигнал отправлен (Priority 5, без звонка)")
     except Exception as e:
-        print(f"⚠️ Ошибка запроса: {e}")
+        print(f"⚠️ Ошибка отправки: {e}")
 
 @client.on(events.NewMessage(chats=source_channel_id))
 async def handler(event):
     print(f"📩 ПОЛУЧЕНО! ID: {event.message.id}")
     msg_text = event.message.text or "Файл"
-    threading.Thread(target=send_debug_notification, args=(msg_text,)).start()
+    threading.Thread(target=send_alert, args=(msg_text,)).start()
 
-print(f"🤖 Бот-Debug запущен! Топик: {NTFY_TOPIC}")
+print(f"🤖 Бот запущен! Топик: {NTFY_TOPIC}")
 client.start()
 client.run_until_disconnected()
